@@ -1,74 +1,38 @@
-# Event Sourcing from Scratch
+# What this project is about
+This project is a response to the [Event Sourcing from Scratch](https://github.com/kreait/code-challenge-event-sourcing) challenge. 
+It implements the Contacts List use case.
 
-In a programming language of your choice, create a contacts list application.
+# How to run it
+1. Go to the console and enter `java -version`. It should show that Java is installed and a version >= 8. You can get Java [here](https://jdk.java.net/12/).
+2. Download the zip file contained in the `binaries` folder of this project, and unzip it to your hard drive.
+3. Using the console, go to the unzipped folder on your hard drive. Enter the `start_scripts`folder. 
+5. Run the `contactsapp_java` script (Unix) or the `contactsapp_java.bat` script (Windows).
 
-[![Discord](https://img.shields.io/discord/523866370778333184.svg?color=7289da&logo=discord)](https://discord.gg/TU8qucU)
+# The output of the script
+The script performs the major steps of the Contacts List use case. The output is:
 
-## Goal
+```Adding person: John Q. Public
+Adding person: John Q. Public
+Adding company: FooBar Inc.
+Renaming person: John Q. Public to: John Q. Private
+Replaying events...
 
-Understand the Event Sourcing pattern by implementing it from scratch.
+The contacts are:
+Person [getName()=John Q. Private]
+Company [getName()=FooBar Inc.]
+```
 
-## Feature requirements
+# How it works internally
+1. The main class sends commands and queries (as objects) to the contact list boundary. 
+The contact list boundary encapsulates the contact list. It contains models that configure which command/query/event is handled by which handler.
+2. The boundary sends a command to its command handler.
+3. The command handler performs validation and any business logic to determine the state change. It returns the state change as event.
+4. The boundary forwards the event to an event publisher (known via dependency injection). The event publisher in the example is the event store.
+5. The event store stores the event in memory. The store then sends the events to subscribers, including the boundary.
+6. The boundary handles the event, by performing the state change on the contact list. The contact list is a regular domain class.
 
-The application should have the following features:
+Queries are handled differently. Instead of returning events, the query handler returns the result of the query.
 
-* A contacts list is a collection of contacts.
-* A contact is either a natural person or a company.
-* A person has a name and can be renamed.
-* A company has a name and can be renamed.
-* A person can be part of a company.
-* If a person is part of a company, they have a role in that company.
-* Two contacts in a contacts list can have the same name.
+# Limitations
+For the sake of simplicity, all communication happens synchronous. This will be changed when further use cases are implemented.
 
-## Technical Requirements
-
-* Use event sourcing to record state changes.
-* Provide a working, self contained code example that uses your implementation
-  to build a contacts list with some contacts in it, for example as
-  * A CLI script
-  * A dynamic CLI application
-  * A test suite
-* Provide a README with instructions on how to run the example. Don't 
-  assume that everybody has the programming language installed on their 
-  computer or knows how to use the code example. A docker image is probably
-  the safest choice.
-
-## Suggestions
-
-* Anticipate questions from developers that don't know the language and language
-  concepts and try to avoid them
-  * Prefer being explicit over being clever
-  * Don't be afraid of boilerplate code
-  * Try not to use "magic"
-  * Use meaningful names for variables and methods
-* Use as many 3rd party libraries as needed and as few as possible
-* Try not to use a full stack framework like Symfony, Laravel, Django, 
-  Spring Boot (see: "Don't be afraid of boilerplate code")
-* "Overengineering" is relative concept - be as crude or sophisticated 
-  as you want to be
-* Start your implementation with In Memory Persistence, try not to get 
-  diverted by abstraction layers.
-* If you have questions about the challenge, are stuck or just want to hang
-  around with fellow developers, we'd be happy to have you on the 
-  [kreait Discord](https://discord.gg/TU8qucU)!
-
-## Agreements
-
-* Present to your peers what you did, how you did it and why you did it
-  the way you did it.
-* Your peers will ask questions, make suggestions, discuss concepts that they
-  think you might have misunderstood - they will do this in good faith, don't 
-  take it personally, we are all here to learn and to teach.
-* There will be no evaluation of a better or worse solution.
-* There will be no judgement over the used programming language.
-
-## Implementations
-
-| Language | Repository |
-| --- | --- |
-|   |   |
-
-Create a pull request on this repository to add your implementation
-
-
-Happy coding!
