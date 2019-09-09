@@ -1,8 +1,8 @@
 package contactsapp.boundary.internal.event;
 
-import eventstore.TimestampedEvent;
+import eventstore.Event;
 
-public class ContactRenamed extends TimestampedEvent{
+public class ContactRenamed extends Event{
 	private String contactId;
 	private String newName;
 

@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public class EventStore implements Consumer<Object> {
-	private List<TimestampedEvent> storedEvents;
+	private List<Event> storedEvents;
 	private List<Consumer<Object>> subscribers;
 	
 	public EventStore() {
@@ -28,34 +28,34 @@ public class EventStore implements Consumer<Object> {
 		project(event -> eventHappenedUntil(event, instant));
 	}
 	
-	public void project(Predicate<TimestampedEvent> condition) {
-		ArrayList<TimestampedEvent> sortedEvents = new ArrayList<>(storedEvents);
-		sortedEvents.sort(Comparator.comparing(TimestampedEvent::getTimestamp));
+	public void project(Predicate<Event> condition) {
+		ArrayList<Event> sortedEvents = new ArrayList<>(storedEvents);
+		sortedEvents.sort(Comparator.comparing(Event::getTimestamp));
 		
-		for (TimestampedEvent sortedEvent : sortedEvents) {
+		for (Event sortedEvent : sortedEvents) {
 			if(condition.test(sortedEvent)) {
 				notifySubscribers(sortedEvent);
 			}
 		}
 	}
 
-	private boolean eventHappenedUntil(TimestampedEvent storedEvent, Instant instant) {
+	private boolean eventHappenedUntil(Event storedEvent, Instant instant) {
 		return !storedEvent.getTimestamp().isAfter(instant);
 	}
 
 	@Override
 	public void accept(Object event) {
-		if(!(event instanceof TimestampedEvent)) {
+		if(!(event instanceof Event)) {
 			// Only timestamped events are forwarded
 			return;
 		}
 		
-		TimestampedEvent timestampedEvent = (TimestampedEvent)event;
+		Event timestampedEvent = (Event)event;
 		storeEvent(timestampedEvent);
 		notifySubscribers(timestampedEvent);
 	}
 
-	private void storeEvent(TimestampedEvent event) {
+	private void storeEvent(Event event) {
 		storedEvents.add(event);
 	}
 	
