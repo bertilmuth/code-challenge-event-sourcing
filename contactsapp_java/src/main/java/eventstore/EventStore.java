@@ -21,14 +21,14 @@ public class EventStore implements Consumer<Object> {
 	}
 	
 	public void replay() {
-		replayWhile(event -> true);
+		project(event -> true);
 	}
 	
 	public void replayUntil(Instant instant) {
-		replayWhile(event -> eventHappenedUntil(event, instant));
+		project(event -> eventHappenedUntil(event, instant));
 	}
 	
-	private void replayWhile(Predicate<TimestampedEvent> condition) {
+	public void project(Predicate<TimestampedEvent> condition) {
 		ArrayList<TimestampedEvent> sortedEvents = new ArrayList<>(storedEvents);
 		sortedEvents.sort(Comparator.comparing(TimestampedEvent::getTimestamp));
 		
