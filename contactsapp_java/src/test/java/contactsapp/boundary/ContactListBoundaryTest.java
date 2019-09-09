@@ -47,35 +47,35 @@ public class ContactListBoundaryTest {
 
 	@Test
 	public void adds_person() throws InterruptedException {
-		Object handledEvent = addPerson(MAX_MUSTERMANN, boundary);
+		Object handledEvent = addPerson(boundary, MAX_MUSTERMANN);
 		assertTrue(handledEvent instanceof PersonAdded);
 	}
 
 	@Test
 	public void adds_company() throws InterruptedException {
-		Object handledEvent = addCompany(FOO_COM, boundary);
+		Object handledEvent = addCompany(boundary, FOO_COM);
 		assertTrue(handledEvent instanceof CompanyAdded);
 	}
 
 	@Test
 	public void renames_contact() throws InterruptedException {
-		CompanyAdded companyAdded = (CompanyAdded) addCompany(FOO_COM, boundary);
+		CompanyAdded companyAdded = (CompanyAdded) addCompany(boundary, FOO_COM);
 		String companyId = companyAdded.getCompanyId();
 
-		Object handledEvent = renameContact(companyId, BAR_COM, boundary);
+		Object handledEvent = renameContact(boundary, companyId, BAR_COM);
 		assertTrue(handledEvent instanceof ContactRenamed);
 	}
 	
 	@Test
 	public void renaming_missing_contact_fails() throws InterruptedException {
-		Object handledEvent = renameContact(BAR_COM, BAR_COM, boundary);
+		Object handledEvent = renameContact(boundary, BAR_COM, BAR_COM);
 		assertNull(handledEvent);
 	}
 	
 	@Test
 	public void person_enters_employment() throws InterruptedException {
-		PersonAdded personAdded = (PersonAdded) addPerson(MAX_MUSTERMANN, boundary);
-		CompanyAdded companyAdded = (CompanyAdded) addCompany(FOO_COM, boundary);
+		PersonAdded personAdded = (PersonAdded) addPerson(boundary, MAX_MUSTERMANN);
+		CompanyAdded companyAdded = (CompanyAdded) addCompany(boundary, FOO_COM);
 		
 		String personId = personAdded.getPersonId();
 		String companyId = companyAdded.getCompanyId();
@@ -96,8 +96,8 @@ public class ContactListBoundaryTest {
 
 	@Test
 	public void replays_two_events() {
-		addPerson(MAX_MUSTERMANN, boundary);
-		addCompany(BAR_COM, boundary);
+		addPerson(boundary, MAX_MUSTERMANN);
+		addCompany(boundary, BAR_COM);
 
 		ContactListBoundary newContactListBoundary = new ContactListBoundary(eventStore);
 		eventStore.addSubscriber(newContactListBoundary::reactToEvent);
@@ -111,12 +111,12 @@ public class ContactListBoundaryTest {
 
 	@Test
 	public void replays_until_after_first_event() throws InterruptedException {
-		addPerson(MAX_MUSTERMANN, boundary);
+		addPerson(boundary, MAX_MUSTERMANN);
 
 		Instant afterFirstEvent = Instant.now();
 		waitNanoSecond();
 
-		addCompany(BAR_COM, boundary);
+		addCompany(boundary, BAR_COM);
 
 		ContactListBoundary newContactListBoundary = new ContactListBoundary(eventStore);
 		eventStore.addSubscriber(newContactListBoundary::reactToEvent);
@@ -131,17 +131,17 @@ public class ContactListBoundaryTest {
 		Thread.sleep(0, 1);
 	}
 
-	private Object addPerson(String personName, ContactListBoundary boundary) {
+	private Object addPerson(ContactListBoundary boundary, String personName) {
 		AddPerson command = new AddPerson(personName);
 		return reactToCommand(boundary, command);
 	}
 
-	private Object addCompany(String companyName, ContactListBoundary boundary) {
+	private Object addCompany(ContactListBoundary boundary, String companyName) {
 		AddCompany command = new AddCompany(companyName);
 		return reactToCommand(boundary, command);
 	}
 
-	private Object renameContact(String contactId, String newName, ContactListBoundary boundary) {
+	private Object renameContact(ContactListBoundary boundary, String contactId, String newName) {
 		RenameContact command = new RenameContact(contactId, newName);
 		return reactToCommand(boundary, command);
 	}
