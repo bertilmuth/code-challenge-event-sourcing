@@ -133,27 +133,25 @@ public class ContactListBoundaryTest {
 
 	private Object addPerson(String personName, ContactListBoundary boundary) {
 		AddPerson command = new AddPerson(personName);
-		boundary.reactToCommand(command);
-		Object handledEvent = boundary.getHandledEvent();
-		return handledEvent;
+		return reactToCommand(boundary, command);
 	}
 
 	private Object addCompany(String companyName, ContactListBoundary boundary) {
 		AddCompany command = new AddCompany(companyName);
-		boundary.reactToCommand(command);
-		Object handledEvent = boundary.getHandledEvent();
-		return handledEvent;
+		return reactToCommand(boundary, command);
 	}
 
 	private Object renameContact(String contactId, String newName, ContactListBoundary boundary) {
 		RenameContact command = new RenameContact(contactId, newName);
-		boundary.reactToCommand(command);
-		Object handledEvent = boundary.getHandledEvent();
-		return handledEvent;
+		return reactToCommand(boundary, command);
 	}
 
 	private Object enterEmployment(String personId, String companyId, String role, ContactListBoundary boundary) {
 		EnterEmployment command = new EnterEmployment(personId, companyId, role);
+		return reactToCommand(boundary, command);
+	}
+
+	private Object reactToCommand(ContactListBoundary boundary, Object command) {
 		boundary.reactToCommand(command);
 		Object handledEvent = boundary.getHandledEvent();
 		return handledEvent;
