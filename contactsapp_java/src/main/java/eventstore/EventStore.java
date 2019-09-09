@@ -44,15 +44,15 @@ public class EventStore implements Consumer<Object> {
 	}
 
 	@Override
-	public void accept(Object event) {
-		if(!(event instanceof Event)) {
-			// Only timestamped events are forwarded
+	public void accept(Object eventObject) {
+		if(!(eventObject instanceof Event)) {
+			// Only instances of subclasses of Event are forwarded
 			return;
 		}
 		
-		Event timestampedEvent = (Event)event;
-		storeEvent(timestampedEvent);
-		notifySubscribers(timestampedEvent);
+		Event event = (Event)eventObject;
+		storeEvent(event);
+		notifySubscribers(event);
 	}
 
 	private void storeEvent(Event event) {

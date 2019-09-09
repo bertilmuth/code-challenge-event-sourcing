@@ -21,6 +21,7 @@ import contactsapp.command.EnterEmployment;
 import contactsapp.command.RenameContact;
 import contactsapp.query.FindContacts;
 import eventstore.EventStore;
+import eventstore.Outbox;
 
 public class ContactListBoundaryTest {
 	private static final String MAX_MUSTERMANN = "Max Mustermann";
@@ -30,12 +31,14 @@ public class ContactListBoundaryTest {
 	private static final String BAR_COM = "Bar.com";
 
 	private EventStore eventStore;
+	private Outbox outbox;
 	private ContactListBoundary boundary;
 
 	@Before
 	public void setup() {
 		eventStore = new EventStore();
-		boundary = new ContactListBoundary(eventStore);
+		outbox = new Outbox(eventStore);
+		boundary = new ContactListBoundary(outbox);
 		eventStore.addSubscriber(boundary::reactToEvent);
 	}
 	
@@ -86,7 +89,7 @@ public class ContactListBoundaryTest {
 
 	@Test
 	public void replays_zero_events() {
-		ContactListBoundary newContactListBoundary = new ContactListBoundary(eventStore);
+		ContactListBoundary newContactListBoundary = new ContactListBoundary(outbox);
 		eventStore.addSubscriber(newContactListBoundary::reactToEvent);
 		eventStore.replay();
 
@@ -99,7 +102,7 @@ public class ContactListBoundaryTest {
 		addPerson(boundary, MAX_MUSTERMANN);
 		addCompany(boundary, BAR_COM);
 
-		ContactListBoundary newContactListBoundary = new ContactListBoundary(eventStore);
+		ContactListBoundary newContactListBoundary = new ContactListBoundary(outbox);
 		eventStore.addSubscriber(newContactListBoundary::reactToEvent);
 		eventStore.replay();
 
@@ -118,7 +121,7 @@ public class ContactListBoundaryTest {
 
 		addCompany(boundary, BAR_COM);
 
-		ContactListBoundary newContactListBoundary = new ContactListBoundary(eventStore);
+		ContactListBoundary newContactListBoundary = new ContactListBoundary(outbox);
 		eventStore.addSubscriber(newContactListBoundary::reactToEvent);
 		eventStore.replayUntil(afterFirstEvent);
 
