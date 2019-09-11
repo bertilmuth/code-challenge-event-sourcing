@@ -1,11 +1,12 @@
 package contactsapp.boundary;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -38,8 +39,11 @@ public class ContactListBoundaryTest {
 	public void setup() {
 		eventStore = new EventStore();
 		outbox = new Outbox(eventStore);
-		boundary = new ContactListBoundary(outbox);
+		boundary = new ContactListBoundary(this::publishToOutbox);
 		eventStore.addSubscriber(boundary::reactToEvent);
+	}
+	private void publishToOutbox(Object eventObject) {
+		outbox.accept(eventObject);
 	}
 	
 	@Test
@@ -67,12 +71,6 @@ public class ContactListBoundaryTest {
 
 		Object handledEvent = renameContact(boundary, companyId, BAR_COM);
 		assertTrue(handledEvent instanceof ContactRenamed);
-	}
-	
-	@Test
-	public void renaming_missing_contact_fails() throws InterruptedException {
-		Object handledEvent = renameContact(boundary, BAR_COM, BAR_COM);
-		assertNull(handledEvent);
 	}
 	
 	@Test
@@ -113,11 +111,11 @@ public class ContactListBoundaryTest {
 	}
 
 	@Test
-	public void replays_until_after_first_event() throws InterruptedException {
+	public void replays_until_after_first_event(){
 		addPerson(boundary, MAX_MUSTERMANN);
 
 		Instant afterFirstEvent = Instant.now();
-		waitNanoSecond();
+		waitNanoSeconds(1);
 
 		addCompany(boundary, BAR_COM);
 
@@ -130,8 +128,12 @@ public class ContactListBoundaryTest {
 		assertEquals(MAX_MUSTERMANN, newContacts.get(0).getName());
 	}
 
-	private void waitNanoSecond() throws InterruptedException {
-		Thread.sleep(0, 1);
+	private void waitNanoSeconds(int numberOfNanos) {
+		try {
+			Thread.sleep(0, numberOfNanos);
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private Object addPerson(ContactListBoundary boundary, String personName) {
@@ -155,8 +157,15 @@ public class ContactListBoundaryTest {
 	}
 
 	private Object reactToCommand(ContactListBoundary boundary, Object command) {
+		BlockingQueue<Object> handledEventQueue = new ArrayBlockingQueue<>(1);
+		eventStore.addSubscriber(handledEventQueue::offer);
+		
 		boundary.reactToCommand(command);
-		Object handledEvent = boundary.getHandledEvent();
+		Object handledEvent = null;
+		try {
+			handledEvent = handledEventQueue.take();
+		} catch (InterruptedException e) {
+		}
 		return handledEvent;
 	}
 
