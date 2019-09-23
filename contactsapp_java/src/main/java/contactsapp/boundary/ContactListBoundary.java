@@ -1,11 +1,11 @@
 package contactsapp.boundary;
 
-import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+import org.requirementsascode.EventQueue;
 import org.requirementsascode.Model;
 import org.requirementsascode.ModelRunner;
-import org.requirementsascode.StepToBeRun;
 
 import contactsapp.boundary.internal.command_handler.HandleAddCompany;
 import contactsapp.boundary.internal.command_handler.HandleAddPerson;
@@ -27,6 +27,7 @@ import contactsapp.command.AddPerson;
 import contactsapp.command.EnterEmployment;
 import contactsapp.command.RenameContact;
 import contactsapp.query.FindContacts;
+import eventstore.Event;
 
 /**
  * The boundary class is the only point of communication with the outside world.
@@ -39,68 +40,65 @@ import contactsapp.query.FindContacts;
  *
  */
 public class ContactListBoundary {
+	private Consumer<Object> eventConsumer;
 	private ContactList contactList;
+	private EventQueue taskQueue;
 
-	private ModelRunner commandHandlingModelRunner;
-	private ModelRunner queryHandlingModelRunner;
-	private ModelRunner eventHandlingModelRunner;
-
-	private Object handledEvent;
-
-	public ContactListBoundary(Consumer<Object> eventPublisher) {
-		contactList = new ContactList();
-		
-		commandHandlingModelRunner = new ModelRunner()
-			.handleWith(this::clearHandledEvent)
-			.publishWith(eventPublisher)
-			.run(commandHandlingModel());
-		
-		queryHandlingModelRunner = new ModelRunner().run(queryHandlingModel());
-		
-		eventHandlingModelRunner = new ModelRunner()
-				.handleWith(this::saveHandledEvent)
-				.run(eventHandlingModel());
+	public ContactListBoundary() {
+		this(event->{});
+	}
+	
+	public ContactListBoundary(Consumer<Object> eventConsumer) {
+		this.eventConsumer = eventConsumer;
+		this.contactList = new ContactList();
+		this.taskQueue = new EventQueue(this::performTask);
 	}
 
-	// The following three methods serve to find out which event was actually
-	// handled by the event handling model. 
-	private void clearHandledEvent(StepToBeRun stepToBeRun) {
-		handledEvent = null;
-		stepToBeRun.run();
+	private void performTask(Object taskObject) {
+		Task task = (Task)taskObject;
+		Object taskResult = task.getTaskResult();
+		if(taskResult instanceof Event) {
+			Event event = (Event)taskResult;
+			eventConsumer.accept(event);
+			reactToEvent(event);
+		}
+		task.getCompletableFuture().complete(taskResult);
 	}
-
-	private void saveHandledEvent(StepToBeRun stepToBeRun) {
-		stepToBeRun.getMessage().ifPresent(event -> handledEvent = event);
-		stepToBeRun.run();
-	}
-
-	public Object getHandledEvent() {
-		return handledEvent;
-	}
+	
 
 	/**
-	 * Builds a model that ties command types to command handlers.
+	 * Reacts to the specified user message (i.e. command or query) by sending it to
+	 * its message handler, if there is one, and returning the result.
 	 * 
-	 * @return the model that has been builtO
+	 * @param message the command or querye.
+	 * @return a completable future with the published event, if the specified
+	 *         message is a command, or the query result.
 	 */
-	private Model commandHandlingModel() {
+	public CompletableFuture<Object> reactToUserMessage(Object message) {
+		CompletableFuture<Object> completableFuture = new CompletableFuture<>();
+		Consumer<Object> taskCreator = new TaskCreator(completableFuture);
+		new ModelRunner().publishWith(taskCreator).run(userMessageHandlingModel()).reactTo(message);
+		return completableFuture;
+	}
+
+	public void reactToEvent(Object event) {
+		new ModelRunner().run(eventHandlingModel()).reactTo(event);
+	}
+
+	private Model userMessageHandlingModel() {
 		Model model = Model.builder()
 			.user(AddPerson.class).systemPublish(new HandleAddPerson(contactList))
 			.user(AddCompany.class).systemPublish(new HandleAddCompany(contactList))
 			.user(RenameContact.class).systemPublish(new HandleRenameContact(contactList))
 			.user(EnterEmployment.class).systemPublish(new HandleEnterEmployment(contactList))
+			.user(FindContacts.class).systemPublish(new HandleFindContacts(contactList))
 			.on(ValidationError.class).systemPublish(err -> err) // Return validation errors
+
 		.build();
 
 		return model;
 	}
-
-	/**
-	 * Builds a model that defines how the aggregate root (i.e. the ContactList
-	 * instance) reacts to an event. The reaction determines the state change.
-	 * 
-	 * @return the model that has been built
-	 */
+	
 	private Model eventHandlingModel() {
 		Model model = Model.builder()
 			.on(PersonAdded.class).system(new HandlePersonAdded(contactList))
@@ -112,48 +110,35 @@ public class ContactListBoundary {
 		return model;
 	}
 
-	/**
-	 * Builds a model that ties queries to query handlers.
-	 * 
-	 * @return the model that has been built
-	 */
-	private Model queryHandlingModel() {
-		Model model = Model.builder()
-			.user(FindContacts.class).systemPublish(new HandleFindContacts(contactList))
-		.build();
+	private class TaskCreator implements Consumer<Object> {
+		private CompletableFuture<Object> completableFuture;
 
-		return model;
+		public TaskCreator(CompletableFuture<Object> completableFuture) {
+			this.completableFuture = completableFuture;
+		}
+
+		@Override
+		public void accept(Object taskResult) {
+			Task task = new Task(taskResult, completableFuture);
+			taskQueue.put(task);
+		}
 	}
 
-	/**
-	 * Reacts to the specified command object by sending it to its command handler,
-	 * if there is one.
-	 * 
-	 * @param command the command to send
-	 * @return an error object if an error occured, else an empty optional
-	 */
-	public Optional<Object> reactToCommand(Object command) {
-		return commandHandlingModelRunner.reactTo(command);
-	}
+	private class Task {
+		private final Object taskResult;
+		private final CompletableFuture<Object> completableFuture;
 
-	/**
-	 * Reacts to the specified event by sending it to its event handler, if there is
-	 * one.
-	 * 
-	 * @param event the event to send
-	 */
-	public void reactToEvent(Object event) {
-		eventHandlingModelRunner.reactTo(event);
-	}
+		public Task(Object taskResult, CompletableFuture<Object> completableFuture) {
+			this.taskResult = taskResult;
+			this.completableFuture = completableFuture;
+		}
 
-	/**
-	 * Performs the specified query by sending it to its query handler, if there is
-	 * one. If the query handler returns an object, that is returned
-	 * 
-	 * @param query the query to send
-	 * @return the query result, or else an empty optional.
-	 */
-	public Optional<Object> reactToQuery(Object query) {
-		return queryHandlingModelRunner.reactTo(query);
+		public Object getTaskResult() {
+			return taskResult;
+		}
+
+		public CompletableFuture<Object> getCompletableFuture() {
+			return completableFuture;
+		}
 	}
 }

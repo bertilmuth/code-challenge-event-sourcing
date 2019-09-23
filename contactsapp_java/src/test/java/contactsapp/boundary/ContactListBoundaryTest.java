@@ -5,8 +5,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -22,7 +20,6 @@ import contactsapp.command.EnterEmployment;
 import contactsapp.command.RenameContact;
 import contactsapp.query.FindContacts;
 import eventstore.EventStore;
-import eventstore.Outbox;
 
 public class ContactListBoundaryTest {
 	private static final String MAX_MUSTERMANN = "Max Mustermann";
@@ -32,18 +29,12 @@ public class ContactListBoundaryTest {
 	private static final String BAR_COM = "Bar.com";
 
 	private EventStore eventStore;
-	private Outbox outbox;
 	private ContactListBoundary boundary;
 
 	@Before
 	public void setup() {
 		eventStore = new EventStore();
-		outbox = new Outbox(eventStore);
-		boundary = new ContactListBoundary(this::publishToOutbox);
-		eventStore.addSubscriber(boundary::reactToEvent);
-	}
-	private void publishToOutbox(Object eventObject) {
-		outbox.accept(eventObject);
+		boundary = new ContactListBoundary(eventStore);
 	}
 	
 	@Test
@@ -87,9 +78,8 @@ public class ContactListBoundaryTest {
 
 	@Test
 	public void replays_zero_events() {
-		ContactListBoundary newContactListBoundary = new ContactListBoundary(outbox);
-		eventStore.addSubscriber(newContactListBoundary::reactToEvent);
-		eventStore.replay();
+		ContactListBoundary newContactListBoundary = new ContactListBoundary();
+		eventStore.replayWith(newContactListBoundary::reactToEvent);
 
 		List<Contact> contacts = findContacts(newContactListBoundary);
 		assertTrue(contacts.isEmpty());
@@ -100,9 +90,8 @@ public class ContactListBoundaryTest {
 		addPerson(boundary, MAX_MUSTERMANN);
 		addCompany(boundary, BAR_COM);
 
-		ContactListBoundary newContactListBoundary = new ContactListBoundary(outbox);
-		eventStore.addSubscriber(newContactListBoundary::reactToEvent);
-		eventStore.replay();
+		ContactListBoundary newContactListBoundary = new ContactListBoundary();
+		eventStore.replayWith(newContactListBoundary::reactToEvent);
 
 		List<Contact> newContacts = findContacts(newContactListBoundary);
 		assertEquals(2, newContacts.size());
@@ -119,9 +108,8 @@ public class ContactListBoundaryTest {
 
 		addCompany(boundary, BAR_COM);
 
-		ContactListBoundary newContactListBoundary = new ContactListBoundary(outbox);
-		eventStore.addSubscriber(newContactListBoundary::reactToEvent);
-		eventStore.replayUntil(afterFirstEvent);
+		ContactListBoundary newContactListBoundary = new ContactListBoundary();
+		eventStore.replayWithUntil(newContactListBoundary::reactToEvent, afterFirstEvent);
 
 		List<Contact> newContacts = findContacts(newContactListBoundary);
 		assertEquals(1, newContacts.size());
@@ -138,40 +126,39 @@ public class ContactListBoundaryTest {
 
 	private Object addPerson(ContactListBoundary boundary, String personName) {
 		AddPerson command = new AddPerson(personName);
-		return reactToCommand(boundary, command);
+		return reactToUserMessage(boundary, command);
 	}
 
 	private Object addCompany(ContactListBoundary boundary, String companyName) {
 		AddCompany command = new AddCompany(companyName);
-		return reactToCommand(boundary, command);
+		return reactToUserMessage(boundary, command);
 	}
 
 	private Object renameContact(ContactListBoundary boundary, String contactId, String newName) {
 		RenameContact command = new RenameContact(contactId, newName);
-		return reactToCommand(boundary, command);
+		return reactToUserMessage(boundary, command);
 	}
 
 	private Object enterEmployment(String personId, String companyId, String role, ContactListBoundary boundary) {
 		EnterEmployment command = new EnterEmployment(personId, companyId, role);
-		return reactToCommand(boundary, command);
+		return reactToUserMessage(boundary, command);
+	}
+	
+	@SuppressWarnings("unchecked")
+	private List<Contact> findContacts(ContactListBoundary boundary) {
+		FindContacts query = new FindContacts();
+		return (List<Contact>)reactToUserMessage(boundary, query);
 	}
 
-	private Object reactToCommand(ContactListBoundary boundary, Object command) {
-		BlockingQueue<Object> handledEventQueue = new ArrayBlockingQueue<>(1);
-		eventStore.addSubscriber(handledEventQueue::offer);
-		
-		boundary.reactToCommand(command);
-		Object handledEvent = null;
+	private Object reactToUserMessage(ContactListBoundary boundary, Object message) {
+		Object handledEvent;
 		try {
-			handledEvent = handledEventQueue.take();
-		} catch (InterruptedException e) {
+			handledEvent = boundary.reactToUserMessage(message).get();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
 		}
 		return handledEvent;
 	}
 
-	private List<Contact> findContacts(ContactListBoundary boundary) {
-		@SuppressWarnings("unchecked")
-		List<Contact> contacts = (List<Contact>) boundary.reactToQuery(new FindContacts()).get();
-		return contacts;
-	}
+
 }
