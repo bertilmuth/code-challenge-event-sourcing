@@ -34,7 +34,7 @@ public class EventStore implements Consumer<Object> {
 			}
 		}
 	}
-
+	
 	private boolean eventHappenedUntil(Event storedEvent, Instant instant) {
 		return !storedEvent.getTimestamp().isAfter(instant);
 	}

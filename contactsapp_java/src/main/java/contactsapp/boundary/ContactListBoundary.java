@@ -1,9 +1,9 @@
 package contactsapp.boundary;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-import org.requirementsascode.EventQueue;
 import org.requirementsascode.Model;
 import org.requirementsascode.ModelRunner;
 
@@ -43,6 +43,7 @@ public class ContactListBoundary {
 	private Consumer<Object> eventConsumer;
 	private ContactList contactList;
 	private EventQueue taskQueue;
+	private AtomicInteger parallelTaskCount;
 
 	public ContactListBoundary() {
 		this(event->{});
@@ -52,17 +53,26 @@ public class ContactListBoundary {
 		this.eventConsumer = eventConsumer;
 		this.contactList = new ContactList();
 		this.taskQueue = new EventQueue(this::performTask);
+		
+		parallelTaskCount = new AtomicInteger();
 	}
 
 	private void performTask(Object taskObject) {
+		int currentTaskCount = parallelTaskCount.addAndGet(1);
+		if(currentTaskCount > 1) {
+			throw new RuntimeException("Parallel task count: " + currentTaskCount);
+		}
+		
 		Task task = (Task)taskObject;
+
 		Object taskResult = task.getTaskResult();
 		if(taskResult instanceof Event) {
 			Event event = (Event)taskResult;
-			eventConsumer.accept(event);
 			reactToEvent(event);
+			eventConsumer.accept(event);
 		}
 		task.getCompletableFuture().complete(taskResult);
+		parallelTaskCount.decrementAndGet();
 	}
 	
 
@@ -140,5 +150,9 @@ public class ContactListBoundary {
 		public CompletableFuture<Object> getCompletableFuture() {
 			return completableFuture;
 		}
+	}
+
+	public void stopReacting() {
+		taskQueue.stop();
 	}
 }

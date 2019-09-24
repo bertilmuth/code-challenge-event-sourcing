@@ -30,8 +30,13 @@ public class ContactList {
 	}
 
 	public void renameContact(String contactId, String newName) {
-		Optional<Contact> existingContact = getContact(contactId);
-		existingContact.get().setName(newName);
+		Optional<Contact> optionalContact = getContact(contactId);
+		if(optionalContact.isPresent()) {
+			final Contact contact = optionalContact.get();
+			contact.setName(newName);
+		} else {
+			throw new RuntimeException("No contact wit id " + contactId + " found!");
+		}
 	}
 
 	public void enterEmployment(String personId, String companyId, String role) {

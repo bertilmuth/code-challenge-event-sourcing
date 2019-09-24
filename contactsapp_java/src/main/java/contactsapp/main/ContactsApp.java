@@ -1,7 +1,6 @@
 package contactsapp.main;
 
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 import contactsapp.boundary.ContactListBoundary;
 import contactsapp.boundary.internal.domain.Contact;
@@ -18,27 +17,59 @@ public class ContactsApp {
 	private static final String COMPANY_NAME = "FooBar Inc.";
 
 	public static void main(String[] args) throws InterruptedException {
+		new ContactsApp().start();
+	}
+
+	private void start() throws InterruptedException {
 		EventStore eventStore = new EventStore();
+		ContactListBoundary boundary = new ContactListBoundary(eventStore);
 
 		for (int i = 0; i < 100; i++) {
-			final EventSender eventSender = new EventSender(eventStore);
+			final EventSender eventSender = new EventSender(boundary);
 			Thread eventSenderThread = new Thread(eventSender);
 			eventSenderThread.start();
 		}
+		
+		Thread.sleep(5000);
+		
+		System.out.println("Replaying events...");
+		EventStore newEventStore = new EventStore();
+		ContactListBoundary newBoundary = new ContactListBoundary(newEventStore);
+		eventStore.replayWith(newBoundary::reactToEvent);
 
+		System.out.println("\nThe contacts are:");
+		List<Contact> contacts = findContacts(newBoundary);
+		printToConsole(contacts);
+		newBoundary.stopReacting();		
+		
+		boundary.stopReacting();
+	}
+	
+	@SuppressWarnings("unchecked")
+	private List<Contact> findContacts(ContactListBoundary boundary) {
+		FindContacts query = new FindContacts();
+		try {
+			return (List<Contact>)boundary.reactToUserMessage(query).get();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	private void printToConsole(List<Contact> contacts) {
+		for (Contact contact : contacts) {
+			System.out.println(contact);
+		}
 	}
 
 	private static class EventSender implements Runnable {
-		private EventStore eventStore;
+		private ContactListBoundary boundary;
 
-		public EventSender(EventStore eventStore) {
-			this.eventStore = eventStore;
+		public EventSender(ContactListBoundary boundary) {
+			this.boundary = boundary;
 		}
 
 		@Override
 		public void run() {
-			ContactListBoundary boundary = createBoundary();
-
 			System.out.println("Adding person: " + PERSON_NAME);
 			String personId = addPerson(PERSON_NAME, boundary);
 
@@ -46,20 +77,7 @@ public class ContactsApp {
 			addCompany(COMPANY_NAME, boundary);
 
 			System.out.println("Renaming person: " + PERSON_NAME + " to: " + NEW_PERSON_NAME);
-			renameContact(personId, NEW_PERSON_NAME, boundary);
-
-			System.out.println("Replaying events...");
-			ContactListBoundary newBoundary = createBoundary();
-			// eventStore.replayWith(newBoundary);
-
-			System.out.println("\nThe contacts are:");
-			List<Contact> contacts = findContacts(newBoundary);
-			//printToConsole(contacts);			
-		}
-
-		public ContactListBoundary createBoundary() {
-			ContactListBoundary contactListBoundary = new ContactListBoundary(event ->  {});
-			return contactListBoundary;
+			renameContact(personId, NEW_PERSON_NAME, boundary);	
 		}
 
 		private String addPerson(String personName, ContactListBoundary boundary){
@@ -75,29 +93,20 @@ public class ContactsApp {
 
 		private void addCompany(String companyName, ContactListBoundary boundary) {
 			AddCompany command = new AddCompany(companyName);
-			boundary.reactToUserMessage(command);
+			reactToUserMessage(boundary, command);
 		}
 
 		private void renameContact(String contactId, String newName, ContactListBoundary boundary) {
 			RenameContact command = new RenameContact(contactId, newName);
-			boundary.reactToUserMessage(command);
+			reactToUserMessage(boundary, command);
 		}
 
-		@SuppressWarnings("unchecked")
-		private List<Contact> findContacts(ContactListBoundary boundary) {
-			FindContacts query = new FindContacts();
+		private void reactToUserMessage(ContactListBoundary boundary, Object command) {
 			try {
-				return (List<Contact>)boundary.reactToUserMessage(query).get();
-			} catch (InterruptedException | ExecutionException e) {
+				boundary.reactToUserMessage(command).get();
+			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
 		}
-
-		private void printToConsole(List<Contact> contacts) {
-			for (Contact contact : contacts) {
-				System.out.println(contact);
-			}
-		}
-
 	}
 }
