@@ -18,7 +18,7 @@ public class HandleAddCompanyTest {
 	@Before
 	public void setup() {
 		ContactList contactList = new ContactList();
-		commandHandler = new HandleAddCompany(contactList);
+		commandHandler = new HandleAddCompany();
 	}
 	
 	@Test

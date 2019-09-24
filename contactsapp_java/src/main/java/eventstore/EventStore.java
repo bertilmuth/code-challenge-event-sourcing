@@ -21,6 +21,10 @@ public class EventStore implements Consumer<Object> {
 		replayWithUntil(consumer, Instant.now());
 	}
 	
+	public int getNumberOfStoredEvents() {
+		return storedEvents.size();
+	}
+	
 	public void replayWithUntil(Consumer<Object> consumer, Instant instant) {
 		int index = 0;
 		int numberOfStoredEvents = storedEvents.size();

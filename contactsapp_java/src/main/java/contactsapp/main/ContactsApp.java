@@ -15,7 +15,7 @@ public class ContactsApp {
 	private static final String PERSON_NAME = "John Q. Public";
 	private static final String NEW_PERSON_NAME = "John Q. Private";
 	private static final String COMPANY_NAME = "FooBar Inc.";
-
+	
 	public static void main(String[] args) throws InterruptedException {
 		new ContactsApp().start();
 	}
@@ -24,25 +24,30 @@ public class ContactsApp {
 		EventStore eventStore = new EventStore();
 		ContactListBoundary boundary = new ContactListBoundary(eventStore);
 
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < 10000; i++) {
 			final EventSender eventSender = new EventSender(boundary);
 			Thread eventSenderThread = new Thread(eventSender);
 			eventSenderThread.start();
 		}
 		
-		Thread.sleep(5000);
+		Thread.sleep(10000);
+		int numberOfStoredEvents = eventStore.getNumberOfStoredEvents();
 		
 		System.out.println("Replaying events...");
-		EventStore newEventStore = new EventStore();
-		ContactListBoundary newBoundary = new ContactListBoundary(newEventStore);
+		ContactListBoundary newBoundary = new ContactListBoundary();
+		long before = System.currentTimeMillis();
 		eventStore.replayWith(newBoundary::reactToEvent);
+		long after = System.currentTimeMillis();
+		long passed = after-before;
 
 		System.out.println("\nThe contacts are:");
 		List<Contact> contacts = findContacts(newBoundary);
 		printToConsole(contacts);
-		newBoundary.stopReacting();		
+
+		System.out.println("Replay took " + passed + " milliseconds for " + numberOfStoredEvents + " events.");
 		
-		boundary.stopReacting();
+		boundary.stop();
+		newBoundary.stop();		
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -70,13 +75,10 @@ public class ContactsApp {
 
 		@Override
 		public void run() {
-			System.out.println("Adding person: " + PERSON_NAME);
 			String personId = addPerson(PERSON_NAME, boundary);
 
-			System.out.println("Adding company: " + COMPANY_NAME);
 			addCompany(COMPANY_NAME, boundary);
 
-			System.out.println("Renaming person: " + PERSON_NAME + " to: " + NEW_PERSON_NAME);
 			renameContact(personId, NEW_PERSON_NAME, boundary);	
 		}
 

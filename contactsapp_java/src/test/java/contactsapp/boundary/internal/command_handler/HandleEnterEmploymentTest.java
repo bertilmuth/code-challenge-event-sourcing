@@ -29,8 +29,8 @@ public class HandleEnterEmploymentTest {
 
 	@Test
 	public void person_enters_employment() {
-		String personId = contactList.newContactId();
-		String companyId = contactList.newContactId();
+		String personId = contactList.newId();
+		String companyId = contactList.newId();
 		contactList.addPerson(personId, BERTIL_MUTH);
 		contactList.addCompany(companyId, FOO_COM);
 
@@ -44,7 +44,7 @@ public class HandleEnterEmploymentTest {
 
 	@Test
 	public void employee_isnt_a_person() {
-		String companyId = contactList.newContactId();
+		String companyId = contactList.newId();
 		contactList.addCompany(companyId, FOO_COM);
 
 		EnterEmployment command = new EnterEmployment(companyId, companyId, AGILE_COACH);
@@ -54,7 +54,7 @@ public class HandleEnterEmploymentTest {
 
 	@Test
 	public void company_isnt_a_company() {
-		String personId = contactList.newContactId();
+		String personId = contactList.newId();
 		contactList.addPerson(personId, BERTIL_MUTH);
 
 		EnterEmployment command = new EnterEmployment(personId, personId, AGILE_COACH);
@@ -64,7 +64,7 @@ public class HandleEnterEmploymentTest {
 
 	@Test
 	public void person_missing() {
-		String companyId = contactList.newContactId();
+		String companyId = contactList.newId();
 		contactList.addCompany(companyId, FOO_COM);
 		String invalidPersonId = "INVALID_PERSON_ID";
 
@@ -75,7 +75,7 @@ public class HandleEnterEmploymentTest {
 
 	@Test
 	public void company_missing() {
-		String personId = contactList.newContactId();
+		String personId = contactList.newId();
 		contactList.addPerson(personId, BERTIL_MUTH);
 		String invalidCompanyId = "INVALID_COMPANY_ID";
 

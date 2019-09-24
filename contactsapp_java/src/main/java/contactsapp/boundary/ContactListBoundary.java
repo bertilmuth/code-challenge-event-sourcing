@@ -42,7 +42,10 @@ import eventstore.Event;
 public class ContactListBoundary {
 	private Consumer<Object> eventConsumer;
 	private ContactList contactList;
-	private EventQueue taskQueue;
+	private EventQueue futureMessageQueue;
+	
+	private ModelRunner userMessageHandlingModelRunner;
+	private ModelRunner eventHandlingModelRunner;
 
 	public ContactListBoundary() {
 		this(event->{});
@@ -51,19 +54,30 @@ public class ContactListBoundary {
 	public ContactListBoundary(Consumer<Object> eventConsumer) {
 		this.eventConsumer = eventConsumer;
 		this.contactList = new ContactList();
-		this.taskQueue = new EventQueue(this::performTask);		
+		this.futureMessageQueue = new EventQueue(this::processFutureMessage);
+
+		this.userMessageHandlingModelRunner = new ModelRunner().run(userMessageHandlingModel());
+		this.eventHandlingModelRunner = new ModelRunner().run(eventHandlingModel());
 	}
 
-	private void performTask(Object taskObject) {
-		Task task = (Task)taskObject;
+	private void processFutureMessage(Object futureMessageObject) {
+		FutureMessage futureMessage = (FutureMessage) futureMessageObject;
 
-		Object taskResult = task.getTaskResult();
-		if(taskResult instanceof Event) {
-			Event event = (Event)taskResult;
-			reactToEvent(event);
+		CompletableFuture<Object> future = futureMessage.getFuture();
+		Object message = futureMessage.getMessage();
+
+		userMessageHandlingModelRunner
+				.publishWith(messageHandlerResult -> processFutureMessageHandlerResult(future, messageHandlerResult))
+				.reactTo(message);
+	}
+
+	private void processFutureMessageHandlerResult(CompletableFuture<Object> future, Object messageHandlerResult) {
+		if (messageHandlerResult instanceof Event) {
+			Event event = (Event) messageHandlerResult;
 			eventConsumer.accept(event);
+			reactToEvent(event);
 		}
-		task.getCompletableFuture().complete(taskResult);
+		future.complete(messageHandlerResult);
 	}
 	
 
@@ -76,20 +90,20 @@ public class ContactListBoundary {
 	 *         message is a command, or the query result.
 	 */
 	public CompletableFuture<Object> reactToUserMessage(Object message) {
-		CompletableFuture<Object> completableFuture = new CompletableFuture<>();
-		Consumer<Object> taskCreator = new TaskCreator(completableFuture);
-		new ModelRunner().publishWith(taskCreator).run(userMessageHandlingModel()).reactTo(message);
-		return completableFuture;
+		CompletableFuture<Object> future = new CompletableFuture<>();
+		FutureMessage futureMessage = new FutureMessage(future, message);
+		futureMessageQueue.put(futureMessage);
+		return future;
 	}
 
 	public void reactToEvent(Object event) {
-		new ModelRunner().run(eventHandlingModel()).reactTo(event);
+		eventHandlingModelRunner.reactTo(event);
 	}
 
 	private Model userMessageHandlingModel() {
 		Model model = Model.builder()
-			.user(AddPerson.class).systemPublish(new HandleAddPerson(contactList))
-			.user(AddCompany.class).systemPublish(new HandleAddCompany(contactList))
+			.user(AddPerson.class).systemPublish(new HandleAddPerson())
+			.user(AddCompany.class).systemPublish(new HandleAddCompany())
 			.user(RenameContact.class).systemPublish(new HandleRenameContact(contactList))
 			.user(EnterEmployment.class).systemPublish(new HandleEnterEmployment(contactList))
 			.user(FindContacts.class).systemPublish(new HandleFindContacts(contactList))
@@ -111,39 +125,25 @@ public class ContactListBoundary {
 		return model;
 	}
 
-	private class TaskCreator implements Consumer<Object> {
-		private CompletableFuture<Object> completableFuture;
+	private class FutureMessage {
+		private final CompletableFuture<Object> future;
+		private final Object message;
 
-		public TaskCreator(CompletableFuture<Object> completableFuture) {
-			this.completableFuture = completableFuture;
+		public FutureMessage(CompletableFuture<Object> future, Object message) {
+			this.future = future;
+			this.message = message;
+		}
+		
+		public CompletableFuture<Object> getFuture() {
+			return future;
 		}
 
-		@Override
-		public void accept(Object taskResult) {
-			Task task = new Task(taskResult, completableFuture);
-			taskQueue.put(task);
-		}
-	}
-
-	private class Task {
-		private final Object taskResult;
-		private final CompletableFuture<Object> completableFuture;
-
-		public Task(Object taskResult, CompletableFuture<Object> completableFuture) {
-			this.taskResult = taskResult;
-			this.completableFuture = completableFuture;
-		}
-
-		public Object getTaskResult() {
-			return taskResult;
-		}
-
-		public CompletableFuture<Object> getCompletableFuture() {
-			return completableFuture;
+		public Object getMessage() {
+			return message;
 		}
 	}
 
-	public void stopReacting() {
-		taskQueue.stop();
+	public void stop() {
+		futureMessageQueue.stop();
 	}
 }

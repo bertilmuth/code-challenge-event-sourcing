@@ -13,7 +13,7 @@ public class ContactList {
 		this.contacts = new ArrayList<>();
 	}
 
-	public String newContactId() {
+	public String newId() {
 		UUID uuid = UUID.randomUUID();
 		String randomUUIDString = uuid.toString();
 		return randomUUIDString;
