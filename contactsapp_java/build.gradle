@@ -21,7 +21,7 @@ jar {
 }
 
 dependencies {
-	compile 'org.requirementsascode:requirementsascodecore:1.2.1'
+	compile 'org.requirementsascode:requirementsascodecore:1.2.3'
   	testCompile 'junit:junit:4.12'
 }
 repositories {
