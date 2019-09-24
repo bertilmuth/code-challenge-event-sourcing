@@ -5,7 +5,6 @@ import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Test;
 
-import contactsapp.boundary.internal.domain.ContactList;
 import contactsapp.boundary.internal.event.PersonAdded;
 import contactsapp.command.AddPerson;
 
@@ -17,7 +16,6 @@ public class HandleAddPersonTest {
 	
 	@Before
 	public void setup() {
-		ContactList contactList = new ContactList();
 		commandHandler = new HandleAddPerson();
 	}
 	

@@ -1,6 +1,6 @@
 package contactsapp.main;
 
-import java.util.List;
+import java.util.Collection;
 
 import contactsapp.boundary.ContactListBoundary;
 import contactsapp.boundary.internal.domain.Contact;
@@ -24,7 +24,7 @@ public class ContactsApp {
 		EventStore eventStore = new EventStore();
 		ContactListBoundary boundary = new ContactListBoundary(eventStore);
 
-		for (int i = 0; i < 10000; i++) {
+		for (int i = 0; i < 100000; i++) {
 			final EventSender eventSender = new EventSender(boundary);
 			Thread eventSenderThread = new Thread(eventSender);
 			eventSenderThread.start();
@@ -41,7 +41,7 @@ public class ContactsApp {
 		long passed = after-before;
 
 		System.out.println("\nThe contacts are:");
-		List<Contact> contacts = findContacts(newBoundary);
+		Collection<Contact> contacts = findContacts(newBoundary);
 		printToConsole(contacts);
 
 		System.out.println("Replay took " + passed + " milliseconds for " + numberOfStoredEvents + " events.");
@@ -51,16 +51,16 @@ public class ContactsApp {
 	}
 	
 	@SuppressWarnings("unchecked")
-	private List<Contact> findContacts(ContactListBoundary boundary) {
+	private Collection<Contact> findContacts(ContactListBoundary boundary) {
 		FindContacts query = new FindContacts();
 		try {
-			return (List<Contact>)boundary.reactToUserMessage(query).get();
+			return (Collection<Contact>)boundary.reactToUserMessage(query).get();
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	private void printToConsole(List<Contact> contacts) {
+	private void printToConsole(Collection<Contact> contacts) {
 		for (Contact contact : contacts) {
 			System.out.println(contact);
 		}

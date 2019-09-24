@@ -1,16 +1,17 @@
 package contactsapp.boundary.internal.domain;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 public class ContactList {
-	private List<Contact> contacts;
+	private Map<String, Contact> contactIdToContactMap;
 
 	public ContactList() {
-		this.contacts = new ArrayList<>();
+		this.contactIdToContactMap = new LinkedHashMap<>();
 	}
 
 	public String newId() {
@@ -21,12 +22,17 @@ public class ContactList {
 
 	public void addPerson(String id, String personName) {
 		Person person = new Person(id, personName);
-		contacts.add(person);
+		addContact(person);
 	}
 
 	public void addCompany(String id, String companyName) {
 		Company company = new Company(id, companyName);
-		contacts.add(company);
+		addContact(company);
+	}
+	
+	private void addContact(Contact contact) {
+		String id = contact.getId();
+		contactIdToContactMap.put(id, contact);
 	}
 
 	public void renameContact(String contactId, String newName) {
@@ -53,11 +59,12 @@ public class ContactList {
 	}
 
 	public Optional<Contact> getContact(String contactId) {
-		Optional<Contact> contact = contacts.stream().filter(c -> c.getId().equals(contactId)).findFirst();
-		return contact;
+		Contact nullableContact = contactIdToContactMap.get(contactId);
+		return Optional.ofNullable(nullableContact);
 	}
 
-	public List<Contact> getContacts() {
-		return Collections.unmodifiableList(contacts);
+	public Collection<Contact> getContacts() {
+		Collection<Contact> values = contactIdToContactMap.values();
+		return Collections.unmodifiableCollection(values);
 	}
 }

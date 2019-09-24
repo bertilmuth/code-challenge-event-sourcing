@@ -4,7 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.time.Instant;
-import java.util.List;
+import java.util.Collection;
+import java.util.Iterator;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -39,7 +40,7 @@ public class ContactListBoundaryTest {
 	
 	@Test
 	public void contact_list_is_initially_empty() {
-		List<Contact> contacts = findContacts(boundary);
+		Collection<Contact> contacts = findContacts(boundary);
 		assertTrue(contacts.isEmpty());
 	}
 
@@ -81,7 +82,7 @@ public class ContactListBoundaryTest {
 		ContactListBoundary newContactListBoundary = new ContactListBoundary();
 		eventStore.replayWith(newContactListBoundary::reactToEvent);
 
-		List<Contact> contacts = findContacts(newContactListBoundary);
+		Collection<Contact> contacts = findContacts(newContactListBoundary);
 		assertTrue(contacts.isEmpty());
 	}
 
@@ -93,10 +94,12 @@ public class ContactListBoundaryTest {
 		ContactListBoundary newContactListBoundary = new ContactListBoundary();
 		eventStore.replayWith(newContactListBoundary::reactToEvent);
 
-		List<Contact> newContacts = findContacts(newContactListBoundary);
+		Collection<Contact> newContacts = findContacts(newContactListBoundary);
+		Iterator<Contact> newContactsIt = newContacts.iterator();
+		
 		assertEquals(2, newContacts.size());
-		assertEquals(MAX_MUSTERMANN, newContacts.get(0).getName());
-		assertEquals(BAR_COM, newContacts.get(1).getName());
+		assertEquals(MAX_MUSTERMANN, newContactsIt.next().getName());
+		assertEquals(BAR_COM, newContactsIt.next().getName());
 	}
 
 	@Test
@@ -111,9 +114,9 @@ public class ContactListBoundaryTest {
 		ContactListBoundary newContactListBoundary = new ContactListBoundary();
 		eventStore.replayWithUntil(newContactListBoundary::reactToEvent, afterFirstEvent);
 
-		List<Contact> newContacts = findContacts(newContactListBoundary);
+		Collection<Contact> newContacts = findContacts(newContactListBoundary);
 		assertEquals(1, newContacts.size());
-		assertEquals(MAX_MUSTERMANN, newContacts.get(0).getName());
+		assertEquals(MAX_MUSTERMANN, newContacts.iterator().next().getName());
 	}
 
 	private void waitNanoSeconds(int numberOfNanos) {
@@ -145,9 +148,9 @@ public class ContactListBoundaryTest {
 	}
 	
 	@SuppressWarnings("unchecked")
-	private List<Contact> findContacts(ContactListBoundary boundary) {
+	private Collection<Contact> findContacts(ContactListBoundary boundary) {
 		FindContacts query = new FindContacts();
-		return (List<Contact>)reactToUserMessage(boundary, query);
+		return (Collection<Contact>)reactToUserMessage(boundary, query);
 	}
 
 	private Object reactToUserMessage(ContactListBoundary boundary, Object message) {
