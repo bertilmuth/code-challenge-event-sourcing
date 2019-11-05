@@ -31,10 +31,11 @@ import eventstore.Event;
 
 /**
  * The boundary class is the only point of communication with the outside world.
- * It accepts commands, and calls the appropriate command handler.
+ * It accepts commands and queries, and calls the appropriate handlers.
  * 
- * The command handler transforms the commands into events. The events are
- * handled by the event publisher specified as constructor argument.
+ * The handler transforms each message into an event. The events are
+ * handled by the event consumer specified as constructor argument,
+ * typically an event store.
  * 
  * @author b_muth
  *
@@ -44,7 +45,7 @@ public class ContactListBoundary {
 	private ContactList contactList;
 	private EventQueue futureMessageQueue;
 	
-	private ModelRunner userMessageHandlingModelRunner;
+	private ModelRunner messageModelRunner;
 	private ModelRunner eventHandlingModelRunner;
 
 	public ContactListBoundary() {
@@ -56,8 +57,8 @@ public class ContactListBoundary {
 		this.contactList = new ContactList();
 		this.futureMessageQueue = new EventQueue(this::processFutureMessage);
 
-		this.userMessageHandlingModelRunner = new ModelRunner().run(userMessageHandlingModel());
-		this.eventHandlingModelRunner = new ModelRunner().run(eventHandlingModel());
+		this.messageModelRunner = new ModelRunner().run(messageModel());
+		this.eventHandlingModelRunner = new ModelRunner().run(eventModel());
 	}
 
 	private void processFutureMessage(Object futureMessageObject) {
@@ -66,18 +67,18 @@ public class ContactListBoundary {
 		CompletableFuture<Object> future = futureMessage.getFuture();
 		Object message = futureMessage.getMessage();
 
-		userMessageHandlingModelRunner
-				.publishWith(messageHandlerResult -> processFutureMessageHandlerResult(future, messageHandlerResult))
-				.reactTo(message);
+		messageModelRunner
+			.publishWith(eventObject -> processEventObject(future, eventObject))
+			.reactTo(message);
 	}
 
-	private void processFutureMessageHandlerResult(CompletableFuture<Object> future, Object messageHandlerResult) {
-		if (messageHandlerResult instanceof Event) {
-			Event event = (Event) messageHandlerResult;
+	private void processEventObject(CompletableFuture<Object> future, Object eventObject) {
+		if (eventObject instanceof Event) {
+			Event event = (Event) eventObject;
 			eventConsumer.accept(event);
 			reactToEvent(event);
 		}
-		future.complete(messageHandlerResult);
+		future.complete(eventObject);
 	}
 	
 
@@ -89,18 +90,18 @@ public class ContactListBoundary {
 	 * @return a completable future with the published event, if the specified
 	 *         message is a command, or the query result.
 	 */
-	public CompletableFuture<Object> reactToUserMessage(Object message) {
+	public CompletableFuture<Object> reactToMessage(Object message) {
 		CompletableFuture<Object> future = new CompletableFuture<>();
 		FutureMessage futureMessage = new FutureMessage(future, message);
 		futureMessageQueue.put(futureMessage);
 		return future;
 	}
 
-	public void reactToEvent(Object event) {
-		eventHandlingModelRunner.reactTo(event);
+	public void reactToEvent(Object eventObject) {
+		eventHandlingModelRunner.reactTo(eventObject);
 	}
 
-	private Model userMessageHandlingModel() {
+	private Model messageModel() {
 		Model model = Model.builder()
 			.user(AddPerson.class).systemPublish(new HandleAddPerson())
 			.user(AddCompany.class).systemPublish(new HandleAddCompany())
@@ -114,7 +115,7 @@ public class ContactListBoundary {
 		return model;
 	}
 	
-	private Model eventHandlingModel() {
+	private Model eventModel() {
 		Model model = Model.builder()
 			.on(PersonAdded.class).system(new HandlePersonAdded(contactList))
 			.on(CompanyAdded.class).system(new HandleCompanyAdded(contactList))

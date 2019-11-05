@@ -54,7 +54,7 @@ public class ContactsApp {
 	private Collection<Contact> findContacts(ContactListBoundary boundary) {
 		FindContacts query = new FindContacts();
 		try {
-			return (Collection<Contact>)boundary.reactToUserMessage(query).get();
+			return (Collection<Contact>)boundary.reactToMessage(query).get();
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
@@ -86,7 +86,7 @@ public class ContactsApp {
 			AddPerson command = new AddPerson(personName);
 			PersonAdded personAdded;
 			try {
-				personAdded = (PersonAdded) boundary.reactToUserMessage(command).get();
+				personAdded = (PersonAdded) boundary.reactToMessage(command).get();
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
@@ -105,7 +105,7 @@ public class ContactsApp {
 
 		private void reactToUserMessage(ContactListBoundary boundary, Object command) {
 			try {
-				boundary.reactToUserMessage(command).get();
+				boundary.reactToMessage(command).get();
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}

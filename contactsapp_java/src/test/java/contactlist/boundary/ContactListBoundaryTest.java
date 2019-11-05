@@ -157,7 +157,7 @@ public class ContactListBoundaryTest {
 	private Object reactToUserMessage(ContactListBoundary boundary, Object message) {
 		Object handledEvent;
 		try {
-			handledEvent = boundary.reactToUserMessage(message).get();
+			handledEvent = boundary.reactToMessage(message).get();
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
