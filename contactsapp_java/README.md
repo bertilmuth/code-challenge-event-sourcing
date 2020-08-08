@@ -1,1 +1,0 @@
-Retired in favor of the [creditcard_eventsourcing](https://github.com/bertilmuth/requirementsascode/tree/master/requirementsascodeexamples/creditcard_eventsourcing) example.
